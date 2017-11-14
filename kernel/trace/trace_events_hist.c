@@ -982,7 +982,7 @@ static void hist_trigger_stacktrace_print(struct seq_file *m,
 			return;
 
 		seq_printf(m, "%*c", 1 + spaces, ' ');
-		sprint_symbol(str, stacktrace_entries[i]);
+		trace_sprint_symbol(str, stacktrace_entries[i]);
 		seq_printf(m, "%s\n", str);
 	}
 }
@@ -1014,12 +1014,12 @@ hist_trigger_entry_print(struct seq_file *m,
 			seq_printf(m, "%s: %llx", field_name, uval);
 		} else if (key_field->flags & HIST_FIELD_FL_SYM) {
 			uval = *(u64 *)(key + key_field->offset);
-			sprint_symbol_no_offset(str, uval);
+			trace_sprint_symbol_no_offset(str, uval);
 			seq_printf(m, "%s: [%llx] %-45s", field_name,
 				   uval, str);
 		} else if (key_field->flags & HIST_FIELD_FL_SYM_OFFSET) {
 			uval = *(u64 *)(key + key_field->offset);
-			sprint_symbol(str, uval);
+			trace_sprint_symbol(str, uval);
 			seq_printf(m, "%s: [%llx] %-55s", field_name,
 				   uval, str);
 		} else if (key_field->flags & HIST_FIELD_FL_EXECNAME) {

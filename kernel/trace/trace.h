@@ -1814,4 +1814,28 @@ static inline void trace_event_eval_update(struct trace_eval_map **map, int len)
 
 extern struct trace_iterator *tracepoint_print_iter;
 
+static inline int
+trace_sprint_symbol(char *buffer, unsigned long address)
+{
+	int ret;
+
+	ret = sprint_symbol(buffer, address);
+	if (ret == -1)
+		ret = sprintf(buffer, "0x%lx", address);
+
+	return ret;
+}
+
+static inline int
+trace_sprint_symbol_no_offset(char *buffer, unsigned long address)
+{
+	int ret;
+
+	ret = sprint_symbol_no_offset(buffer, address);
+	if (ret == -1)
+		ret = sprintf(buffer, "0x%lx", address);
+
+	return ret;
+}
+
 #endif /* _LINUX_KERNEL_TRACE_H */

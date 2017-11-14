@@ -365,7 +365,7 @@ seq_print_sym_offset(struct trace_seq *s, const char *fmt,
 #ifdef CONFIG_KALLSYMS
 	const char *name;
 
-	sprint_symbol(str, address);
+	trace_sprint_symbol(str, address);
 	name = kretprobed(str);
 
 	if (name && strlen(name)) {
