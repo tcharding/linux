@@ -383,6 +383,16 @@ int lookup_symbol_attrs(unsigned long addr, unsigned long *size,
 	return lookup_module_symbol_attrs(addr, size, offset, modname, name);
 }
 
+/* Enables printing of raw address when symbol look up fails */
+static bool insecure_print_all_symbols;
+
+static int __init enable_insecure_print_all_symbols(char *unused)
+{
+	insecure_print_all_symbols = true;
+	return 0;
+}
+early_param("insecure_print_all_symbols", enable_insecure_print_all_symbols);
+
 /* Look up a kernel symbol and return it in a text buffer. */
 static int __sprint_symbol(char *buffer, unsigned long address,
 			   int symbol_offset, int add_offset)
@@ -394,8 +404,15 @@ static int __sprint_symbol(char *buffer, unsigned long address,
 
 	address += symbol_offset;
 	name = kallsyms_lookup(address, &size, &offset, &modname, buffer);
-	if (!name)
-		return sprintf(buffer, "0x%lx", address - symbol_offset);
+	if (insecure_print_all_symbols) {
+		if (!name)
+			return sprintf(buffer, "0x%lx", address - symbol_offset);
+	} else {
+		if (!name) {
+			buffer[0] = '\0';
+			return -1;
+		}
+	}
 
 	if (name != buffer)
 		strcpy(buffer, name);
@@ -417,8 +434,9 @@ static int __sprint_symbol(char *buffer, unsigned long address,
  * @address: address to lookup
  *
  * This function looks up a kernel symbol with @address and stores its name,
- * offset, size and module name to @buffer if possible. If no symbol was found,
- * just saves its @address as is.
+ * offset, size and module name to @buffer if possible. If no symbol was found
+ * returns -1 unless kernel command-line parameter 'insecure_print_all_symbols'
+ * is enabled, in which case saves @address as is to buffer.
  *
  * This function returns the number of bytes stored in @buffer.
  */
@@ -434,8 +452,9 @@ EXPORT_SYMBOL_GPL(sprint_symbol);
  * @address: address to lookup
  *
  * This function looks up a kernel symbol with @address and stores its name
- * and module name to @buffer if possible. If no symbol was found, just saves
- * its @address as is.
+ * and module name to @buffer if possible. If no symbol was found, returns -1
+ * unless kernel command-line parameter 'insecure_print_all_symbols' is enabled,
+ * in which case saves @address as is to buffer.
  *
  * This function returns the number of bytes stored in @buffer.
  */
