@@ -461,16 +461,18 @@ our $logFunctions = qr{(?x:
 	seq_vprintf|seq_printf|seq_puts
 )};
 
-our $signature_tags = qr{(?xi:
-	Signed-off-by:|
-	Acked-by:|
-	Tested-by:|
-	Reviewed-by:|
-	Reported-by:|
-	Suggested-by:|
-	To:|
-	Cc:
-)};
+our @valid_signatures = (
+	"Signed-off-by:",
+	"Acked-by:",
+	"Tested-by:",
+	"Reviewed-by:",
+	"Reported-by:",
+	"Suggested-by:",
+	"Co-Developed-by:",
+	"To:",
+	"Cc:"
+);
+my $signature_tags = "(?x:" . join('|', @valid_signatures) . ")";
 
 our @typeListMisordered = (
 	qr{char\s+(?:un)?signed},
@@ -2183,6 +2185,17 @@ sub pos_last_openparen {
 	return length(expand_tabs(substr($line, 0, $last_openparen))) + 1;
 }
 
+sub get_preferred_sign_off {
+	my ($sign_off) = @_;
+
+	foreach my $sig (@valid_signatures) {
+		if (lc($sign_off) eq lc($sig)) {
+			return $sig;
+		}
+	}
+	return "";
+}
+
 sub process {
 	my $filename = shift;
 
@@ -2489,35 +2502,34 @@ sub process {
 			my $sign_off = $2;
 			my $space_after = $3;
 			my $email = $4;
-			my $ucfirst_sign_off = ucfirst(lc($sign_off));
+			my $preferred_sign_off = ucfirst(lc($sign_off));
 
-			if ($sign_off !~ /$signature_tags/) {
+			if ($sign_off !~ /$signature_tags/i) {
 				WARN("BAD_SIGN_OFF",
 				     "Non-standard signature: $sign_off\n" . $herecurr);
+			} elsif ($sign_off !~ /$signature_tags/) {
+				$preferred_sign_off = get_preferred_sign_off($sign_off);
+				if (WARN("BAD_SIGN_OFF",
+					 "'$preferred_sign_off' is the preferred signature form\n" . $herecurr) &&
+				    $fix) {
+					$fixed[$fixlinenr] = "$preferred_sign_off $email";
+				}
 			}
 			if (defined $space_before && $space_before ne "") {
 				if (WARN("BAD_SIGN_OFF",
-					 "Do not use whitespace before $ucfirst_sign_off\n" . $herecurr) &&
+					 "Do not use whitespace before $preferred_sign_off\n" . $herecurr) &&
 				    $fix) {
 					$fixed[$fixlinenr] =
-					    "$ucfirst_sign_off $email";
+					    "$preferred_sign_off $email";
 				}
 			}
-			if ($sign_off =~ /-by:$/i && $sign_off ne $ucfirst_sign_off) {
-				if (WARN("BAD_SIGN_OFF",
-					 "'$ucfirst_sign_off' is the preferred signature form\n" . $herecurr) &&
-				    $fix) {
-					$fixed[$fixlinenr] =
-					    "$ucfirst_sign_off $email";
-				}
 
-			}
 			if (!defined $space_after || $space_after ne " ") {
 				if (WARN("BAD_SIGN_OFF",
-					 "Use a single space after $ucfirst_sign_off\n" . $herecurr) &&
+					 "Use a single space after $preferred_sign_off\n" . $herecurr) &&
 				    $fix) {
 					$fixed[$fixlinenr] =
-					    "$ucfirst_sign_off $email";
+					    "$preferred_sign_off $email";
 				}
 			}
 
