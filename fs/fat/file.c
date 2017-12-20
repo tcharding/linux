@@ -121,6 +121,50 @@ static int fat_ioctl_get_volume_id(struct inode *inode, u32 __user *user_attr)
 	return put_user(sbi->vol_id, user_attr);
 }
 
+static int fat_ioctl_set_volume_label(struct inode *inode, u32 __user *user_attr)
+{
+	struct buffer_head *bh;
+	struct fat_boot_sector *b;
+	struct super_block *sb = inode->i_sb;
+	struct msdos_sb_info *sbi = MSDOS_SB(sb);
+
+	/* do not change any thing if mounted read only */
+	if (sb_rdonly(sb))
+		return 0;
+
+	/* do not change state if fs was dirty */
+	if (sbi->dirty) {
+		fat_msg(sb, KERN_WARNING,
+			"Volume was not properly unmounted. "
+			"Some data may be corrupt. Please run fsck.");
+		return -1;
+	}
+
+	bh = sb_bread(sb, 0);
+	if (bh == NULL) {
+		fat_msg(sb, KERN_ERR, "unable to read boot sector.");
+		return -1;
+	}
+
+	b = (struct fat_boot_sector *) bh->b_data;
+
+	/*
+	 * We don't know how much data is passed in via user_attr?
+	 */
+
+	if (sbi->fat_bits == 32) {
+		memcpy(b->fat32.vol_label, user_attr, 11);
+	} else /* fat 16 and 12 */ {
+		memcpy(b->fat16.vol_label, user_attr, 11);
+	}
+
+	mark_buffer_dirty(bh);
+	sync_dirty_buffer(bh);
+	brelse(bh);
+
+	return 0;
+}
+
 long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
@@ -133,6 +177,8 @@ long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return fat_ioctl_set_attributes(filp, user_attr);
 	case FAT_IOCTL_GET_VOLUME_ID:
 		return fat_ioctl_get_volume_id(inode, user_attr);
+	case FAT_IOCTL_SET_VOLUME_LABEL:
+		return fat_ioctl_set_volume_label(inode, user_attr);
 	default:
 		return -ENOTTY;	/* Inappropriate ioctl for device */
 	}
