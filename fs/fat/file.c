@@ -153,9 +153,11 @@ static int fat_ioctl_set_volume_label(struct inode *inode, u32 __user *user_attr
 	 */
 
 	if (sbi->fat_bits == 32) {
-		memcpy(b->fat32.vol_label, user_attr, 11);
+		copy_from_user(b->fat32.vol_label, (u8 *)user_attr,
+			       sizeof(b->fat32.vol_label));
 	} else /* fat 16 and 12 */ {
-		memcpy(b->fat16.vol_label, user_attr, 11);
+		copy_from_user(b->fat16.vol_label, (u8 *)user_attr,
+			       sizeof(b->fat16.vol_label));
 	}
 
 	mark_buffer_dirty(bh);
