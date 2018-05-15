@@ -1306,26 +1306,27 @@ SYSCALL_DEFINE1(olduname, struct oldold_utsname __user *, name)
 
 SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 {
-	int errno;
 	char tmp[__NEW_UTS_LEN];
+	struct new_utsname *u;
 
 	if (!ns_capable(current->nsproxy->uts_ns->user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	if (len < 0 || len > __NEW_UTS_LEN)
 		return -EINVAL;
-	down_write(&uts_sem);
-	errno = -EFAULT;
-	if (!copy_from_user(tmp, name, len)) {
-		struct new_utsname *u = utsname();
 
-		memcpy(u->nodename, tmp, len);
-		memset(u->nodename + len, 0, sizeof(u->nodename) - len);
-		errno = 0;
-		uts_proc_notify(UTS_PROC_HOSTNAME);
-	}
+	if (!copy_from_user(tmp, name, len))
+		return -EFAULT;
+
+	down_write(&uts_sem);
+
+	u = utsname();
+	memcpy(u->nodename, tmp, len);
+	memset(u->nodename + len, 0, sizeof(u->nodename) - len);
+	uts_proc_notify(UTS_PROC_HOSTNAME);
+
 	up_write(&uts_sem);
-	return errno;
+	return 0;
 }
 
 #ifdef __ARCH_WANT_SYS_GETHOSTNAME
