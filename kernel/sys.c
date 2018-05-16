@@ -1333,19 +1333,22 @@ SYSCALL_DEFINE2(sethostname, char __user *, name, int, len)
 
 SYSCALL_DEFINE2(gethostname, char __user *, name, int, len)
 {
-	int i, errno;
+	int nbytes, errno = 0;
 	struct new_utsname *u;
 
 	if (len < 0)
 		return -EINVAL;
+
 	down_read(&uts_sem);
+
 	u = utsname();
-	i = 1 + strlen(u->nodename);
-	if (i > len)
-		i = len;
-	errno = 0;
-	if (copy_to_user(name, u->nodename, i))
+	nbytes = 1 + strlen(u->nodename);
+	if (nbytes > len)
+		nbytes = len;
+
+	if (copy_to_user(name, u->nodename, nbytes))
 		errno = -EFAULT;
+
 	up_read(&uts_sem);
 	return errno;
 }
