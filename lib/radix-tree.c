@@ -1613,6 +1613,18 @@ static int radix_tree_cpu_dead(unsigned int cpu)
 	return 0;
 }
 
+
+extern void xa_object_migrate(void *tree_node, int numa_node);
+
+static void radix_tree_migrate(struct kmem_cache *s, void **objects, int nr,
+		int node, void *private)
+{
+	int i;
+
+	for (i=0; i<nr; i++)
+		xa_object_migrate(objects[i], node);
+}
+
 void __init radix_tree_init(void)
 {
 	int ret;
@@ -1627,4 +1639,7 @@ void __init radix_tree_init(void)
 	ret = cpuhp_setup_state_nocalls(CPUHP_RADIX_DEAD, "lib/radix:dead",
 					NULL, radix_tree_cpu_dead);
 	WARN_ON(ret < 0);
+	kmem_cache_setup_mobility(radix_tree_node_cachep,
+					NULL,
+					radix_tree_migrate);
 }
