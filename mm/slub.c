@@ -351,6 +351,12 @@ static __always_inline void slab_lock(struct page *page)
 	bit_spin_lock(PG_locked, &page->flags);
 }
 
+static __always_inline int slab_trylock(struct page *page)
+{
+	VM_BUG_ON_PAGE(PageTail(page), page);
+	return bit_spin_trylock(PG_locked, &page->flags);
+}
+
 static __always_inline void slab_unlock(struct page *page)
 {
 	VM_BUG_ON_PAGE(PageTail(page), page);
@@ -3943,79 +3949,6 @@ void kfree(const void *x)
 }
 EXPORT_SYMBOL(kfree);
 
-#define SHRINK_PROMOTE_MAX 32
-
-/*
- * kmem_cache_shrink discards empty slabs and promotes the slabs filled
- * up most to the head of the partial lists. New allocations will then
- * fill those up and thus they can be removed from the partial lists.
- *
- * The slabs with the least items are placed last. This results in them
- * being allocated from last increasing the chance that the last objects
- * are freed in them.
- */
-int __kmem_cache_shrink(struct kmem_cache *s)
-{
-	int node;
-	int i;
-	struct kmem_cache_node *n;
-	struct page *page;
-	struct page *t;
-	struct list_head discard;
-	struct list_head promote[SHRINK_PROMOTE_MAX];
-	unsigned long flags;
-	int ret = 0;
-
-	flush_all(s);
-	for_each_kmem_cache_node(s, node, n) {
-		INIT_LIST_HEAD(&discard);
-		for (i = 0; i < SHRINK_PROMOTE_MAX; i++)
-			INIT_LIST_HEAD(promote + i);
-
-		spin_lock_irqsave(&n->list_lock, flags);
-
-		/*
-		 * Build lists of slabs to discard or promote.
-		 *
-		 * Note that concurrent frees may occur while we hold the
-		 * list_lock. page->inuse here is the upper limit.
-		 */
-		list_for_each_entry_safe(page, t, &n->partial, lru) {
-			int free = page->objects - page->inuse;
-
-			/* Do not reread page->inuse */
-			barrier();
-
-			/* We do not keep full slabs on the list */
-			BUG_ON(free <= 0);
-
-			if (free == page->objects) {
-				list_move(&page->lru, &discard);
-				n->nr_partial--;
-			} else if (free <= SHRINK_PROMOTE_MAX)
-				list_move(&page->lru, promote + free - 1);
-		}
-
-		/*
-		 * Promote the slabs filled up most to the head of the
-		 * partial list.
-		 */
-		for (i = SHRINK_PROMOTE_MAX - 1; i >= 0; i--)
-			list_splice(promote + i, &n->partial);
-
-		spin_unlock_irqrestore(&n->list_lock, flags);
-
-		/* Release empty slabs */
-		list_for_each_entry_safe(page, t, &discard, lru)
-			discard_slab(s, page);
-
-		if (slabs_node(s, node))
-			ret = 1;
-	}
-
-	return ret;
-}
-
 #ifdef CONFIG_MEMCG
 static void kmemcg_cache_deact_after_rcu(struct kmem_cache *s)
 {
@@ -4322,6 +4255,300 @@ static inline void *alloc_scratch(void)
 		GFP_KERNEL);
 }
 
+/*
+ * __kmem_cache_move() - Move all objects in the given slab.
+ * @page: The slab we are working on.
+ * @scratch: Pointer to scratch space.
+ * @node: The target node to move objects to.
+ *
+ * If the target node is not the current node then the object is moved
+ * to the target node.  If the target node is the current node then this
+ * is an effective way of defragmentation since the current slab page
+ *  with its object is exempt from allocation.
+ */
+static void __kmem_cache_move(struct page *page, void *scratch, int node)
+{
+	void **vector = scratch;
+	void *p;
+	void *addr = page_address(page);
+	struct kmem_cache *s;
+	unsigned long *map;
+	int count;
+	void *private;
+	unsigned long flags;
+	unsigned long objects;
+
+	local_irq_save(flags);
+	slab_lock(page);
+
+	BUG_ON(!PageSlab(page)); /* Must be s slab page */
+	BUG_ON(!page->frozen);	 /* Slab must have been frozen earlier */
+
+	s = page->slab_cache;
+	objects = page->objects;
+	map = scratch + objects * sizeof(void **);
+
+	/* Determine used objects */
+	bitmap_fill(map, objects);
+	for (p = page->freelist; p; p = get_freepointer(s, p))
+		__clear_bit(slab_index(p, s, addr), map);
+
+	/* Build vector of pointers to objects */
+	count = 0;
+	memset(vector, 0, objects * sizeof(void **));
+	for_each_object(p, s, addr, objects)
+		if (test_bit(slab_index(p, s, addr), map))
+			vector[count++] = p;
+
+	if (s->isolate)
+		private = s->isolate(s, vector, count);
+	else
+		/* Objects do not need to be isolated */
+		private = NULL;
+
+	/*
+	 * Pinned the objects. Now we can drop the slab lock. The slab
+	 * is frozen so it cannot vanish from under us nor will
+	 * allocations be performed on the slab. However, unlocking the
+	 * slab will allow concurrent slab_frees to proceed. So the
+	 * subsystem must have a way to tell from the content of the
+	 * object that it was freed.
+	 *
+	 * If neither RCU nor ctor is being used then the object may be
+	 * modified by the allocator after being freed which may disrupt
+	 * the ability of the migrate function to tell if the object is
+	 * free or not.
+	 */
+	slab_unlock(page);
+	local_irq_restore(flags);
+
+	/* Perform callback to move the objects */
+	s->migrate(s, vector, count, node, private);
+}
+
+/*
+ * separate_movable_slabs() - Populates list with movable slabs.
+ * @s: cache we are working on.
+ * @node: The node we are moving slabs from.
+ * @ratio: The defrag ratio (percentage, between 0 and 100).
+ * @move_list: The list to populate.
+ *
+ * Iterates over the partial slab list for @node.  If a slab has object
+ * density lower than @ratio then the slab is removed from the partial
+ * list and added to @move_list.
+ *
+ * If @s does not support object migration then we splice move_list onto
+ * the end of the partial slab list.  This effectively sorts the partial
+ * list, putting slabs with more objects first.  Allocation will then
+ * fill these slabs first helping to increase object density.
+ *
+ * Return: Pointer to @s if there may be objects in the list that
+ * require migration. NULL if cache does not support migration.
+ */
+static void separate_movable_slabs(struct kmem_cache *s, int node, int ratio,
+				   struct list_head *move_list)
+{
+	struct kmem_cache_node *n = get_node(s, node);
+	struct page *page, *page2;
+	unsigned long flags;
+
+	spin_lock_irqsave(&n->list_lock, flags);
+	list_for_each_entry_safe(page, page2, &n->partial, lru) {
+		if (!slab_trylock(page))
+			/* Busy slab. Get out of the way */
+			continue;
+
+		if (page->inuse) {
+			if (page->inuse > ratio * page->objects / 100) {
+				slab_unlock(page);
+				/*
+				 * Skip slab because the object density
+				 * in the slab page is high enough.
+				 */
+				continue;
+			}
+
+			list_move(&page->lru, move_list);
+			if (s->migrate) {
+				/* Stop page being considered for allocations */
+				n->nr_partial--;
+				page->frozen = 1;
+			}
+			slab_unlock(page);
+		} else {	/* Empty slab page */
+			list_del(&page->lru);
+			n->nr_partial--;
+			slab_unlock(page);
+			discard_slab(s, page);
+		}
+	}
+
+	if (!s->migrate) {
+		/*
+		 * No defrag method. By simply putting the zaplist at the
+		 * end of the partial list we can let them simmer longer
+		 * and thus increase the chance of all objects being
+		 * reclaimed.
+		 *
+		 */
+		list_splice(move_list, n->partial.prev);
+	}
+
+	spin_unlock_irqrestore(&n->list_lock, flags);
+}
+
+/*
+ * kmem_chache_move() - Move slab objects on a particular node of the cache.
+ * @s: cache we are working on.
+ * @node: The node to move objects from.
+ * @target_node: The node to move objects to.
+ * @ratio: The defrag ratio (percentage, between 0 and 100).
+ *
+ * Release slabs with zero objects and try to call the migration function
+ * for slabs with less than the configured percentage of objects allocated.
+ *
+ * Return: The number of slabs left on the node after the operation.
+ */
+static unsigned long kmem_cache_move(struct kmem_cache *s, int node,
+				     int target_node, int ratio)
+{
+	/*
+	 * FIXME This function is only ever called with node==target_node
+	 *
+	 * Why do we have two node parameters?
+	 */
+
+	struct kmem_cache_node *n = get_node(s, node);
+	LIST_HEAD(move_list);
+	unsigned long flags;
+
+	if (node == target_node && n->nr_partial <= 1) {
+		/*
+		 * Trying to reduce fragmentataion on a node but there is
+		 * only a single or no partial slab page. This is already
+		 * the optimal object density that we can reach.
+		 */
+		return atomic_long_read(&n->nr_slabs);
+	}
+
+	separate_movable_slabs(s, node, ratio, &move_list);
+
+	if (s->migrate && !list_empty(&move_list)) {
+		void **scratch = alloc_scratch();
+		struct page *page, *page2;
+
+		if (scratch) {
+			/* Try to remove / move the objects left */
+			list_for_each_entry(page, &move_list, lru) {
+				if (page->inuse)
+					__kmem_cache_move(page, scratch, target_node);
+			}
+			kfree(scratch);
+		}
+
+		/* Inspect results and dispose of pages */
+		spin_lock_irqsave(&n->list_lock, flags);
+		list_for_each_entry_safe(page, page2, &move_list, lru) {
+			list_del(&page->lru);
+			slab_lock(page);
+			page->frozen = 0;
+
+			if (page->inuse) {
+				/*
+				 * Objects left in slab page, move it to the
+				 * tail of the partial list to increase the
+				 * chance that the freeing of the remaining
+				 * objects will free the slab page.
+				 */
+				n->nr_partial++;
+				list_add_tail(&page->lru, &n->partial);
+				slab_unlock(page);
+			} else {
+				slab_unlock(page);
+				discard_slab(s, page);
+			}
+		}
+		spin_unlock_irqrestore(&n->list_lock, flags);
+	}
+
+	return atomic_long_read(&n->nr_slabs);
+}
+
+/**
+ * kmem_cache_defrag() - Defrag slab caches.
+ * @node: The node to defrag or -1 for all nodes.
+ *
+ * Defrag slabs conditional on the amount of fragmentation in a page.
+ */
+int kmem_cache_defrag(int node)
+{
+	struct kmem_cache *s;
+	unsigned long left = 0;
+
+	/*
+	 * kmem_cache_defrag may be called from the reclaim path which may be
+	 * called for any page allocator alloc. So there is the danger that we
+	 * get called in a situation where slub already acquired the slub_lock
+	 * for other purposes.
+	 */
+	if (!mutex_trylock(&slab_mutex))
+		return 0;
+
+	list_for_each_entry(s, &slab_caches, list) {
+		/*
+		 * Defragmentable caches come first. If the slab cache is not
+		 * defragmentable then we can stop traversing the list.
+		 */
+		if (!s->migrate)
+			break;
+
+		if (node == -1) {
+			int nid;
+			for_each_node_state(nid, N_NORMAL_MEMORY)
+				if (s->node[nid]->nr_partial > MAX_PARTIAL)
+					left += kmem_cache_move(s, nid, nid, s->defrag_used_ratio);
+		} else
+			/*
+			 * FIXME
+			 *
+			 * Why is this 100 instead of s->defrag_used_ratio?
+			 * Why don't we use MAX_PARTIAL as above?
+			 */
+			left  += kmem_cache_move(s, node, node, 100);
+
+	}
+	mutex_unlock(&slab_mutex);
+	return left;
+}
+EXPORT_SYMBOL(kmem_cache_defrag);
+
+/**
+ * __kmem_cache_shrink() - Shrink a cache.
+ * @s: The cache to shrink.
+ *
+ * Reduces the memory footprint of a slab cache by as much as possible.
+ *
+ * This works by:
+ *  1. Removing empty slabs from the partial list.
+ *  2. Migrating slab objects to denser slab pages if the slab cache
+ *  supports migration.  If not, reorganizing the partial list so that
+ *  more densely allocated slab pages come first.
+ *
+ * Not called directly, called by kmem_cache_shrink().
+ */
+int __kmem_cache_shrink(struct kmem_cache *s)
+{
+	int node;
+	int left = 0;
+
+	flush_all(s);
+	for_each_node_state(node, N_NORMAL_MEMORY)
+		left += kmem_cache_move(s, node, node, 100);
+
+	return left;
+}
+EXPORT_SYMBOL(__kmem_cache_shrink);
+
 void kmem_cache_setup_mobility(struct kmem_cache *s,
 			       kmem_cache_isolate_func isolate,
 			       kmem_cache_migrate_func migrate)
@@ -4329,8 +4556,13 @@ void kmem_cache_setup_mobility(struct kmem_cache *s,
 	int max_objects = oo_objects(s->max);
 
 	/*
-	 * Defragmentable slabs must have a ctor otherwise objects may be
-	 * in an undetermined state after they are allocated.
+	 * Mobile objects must have a ctor otherwise the
+	 * object may be in an undefined state on allocation.
+	 *
+	 * Since the object may need to be inspected by the
+	 * migration function at any time after allocation we
+	 * must ensure that the object always has a defined
+	 * state.
 	 */
 	BUG_ON(!s->ctor);
 
