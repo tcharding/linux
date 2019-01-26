@@ -298,8 +298,13 @@ int slab_unmergeable(struct kmem_cache *s)
 	if (!is_root_cache(s))
 		return 1;
 
+#ifdef CONFIG_SLUB
+	if (s->ctor || s->isolate || s->migrate)
+		return 1;
+#else
 	if (s->ctor)
 		return 1;
+#endif
 
 	if (s->usersize)
 		return 1;
