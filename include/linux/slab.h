@@ -153,6 +153,68 @@ void memcg_deactivate_kmem_caches(struct mem_cgroup *);
 void memcg_destroy_kmem_caches(struct mem_cgroup *);
 
 /*
+ * Function prototypes passed to kmem_cache_setup_mobility() to enable mobile
+ * objects and targeted reclaim in slab caches.
+ */
+
+/*
+ * kmem_cache_isolate_func() is called with locks held so that the slab
+ * objects cannot be freed. We are in an atomic context and no slab
+ * operations may be performed. The purpose of kmem_cache_isolate_func()
+ * is to pin the object so that it cannot be freed until
+ * kmem_cache_migrate_func() has processed them. This may be accomplished
+ * by increasing the refcount or setting a flag.
+ *
+ * Parameters passed are the number of objects to process and an array of
+ * pointers to objects which are intended to be moved.
+ *
+ * Returns a pointer that is passed to the migrate function. If any objects
+ * cannot be touched at this point then the pointer may indicate a
+ * failure and then the migration function can simply remove the references
+ * that were already obtained. The private data could be used to track
+ * the objects that were already pinned.
+ *
+ * The object pointer array passed is also passed to kmem_cache_migrate().
+ * The function may remove objects from the array by setting pointers to
+ * NULL. This is useful if we can determine that an object is being freed
+ * because kmem_cache_isolate_func() was called when the subsystem
+ * was calling kmem_cache_free().
+ * In that case it is not necessary to increase the refcount or
+ * specially mark the object because the release of the slab lock
+ * will lead to the immediate freeing of the object.
+ */
+typedef void *kmem_isolate_func(struct kmem_cache *, void **, int);
+
+/*
+ * kmem_cache_move_migrate_func is called with no locks held and interrupts
+ * enabled. Sleeping is possible. Any operation may be performed in
+ * migrate(). kmem_cache_migrate_func should allocate new objects and
+ * free all the objects.
+ **
+ * Parameters passed are the number of objects in the array, the array of
+ * pointers to the objects, the NUMA node where the object should be
+ * allocated and the pointer returned by kmem_cache_isolate_func().
+ *
+ * Success is checked by examining the number of remaining objects in
+ * the slab. If the number is zero then the objects will be freed.
+ */
+typedef void kmem_migrate_func(struct kmem_cache *, void **, int nr, int node, void *private);
+
+/*
+ * kmem_cache_setup_mobility() is used to setup callbacks for a slab cache.
+ */
+#ifdef CONFIG_SLUB
+void kmem_cache_setup_mobility(struct kmem_cache *, kmem_isolate_func,
+						kmem_migrate_func);
+#else
+static inline void kmem_cache_setup_mobility(struct kmem_cache *s,
+	kmem_isolate_func isolate, kmem_migrate_func migrate) {}
+#endif
+
+/*
+ * Allocator specific definitions. These are mainly used to establish optimized
+ * ways to convert kmalloc() calls to kmem_cache_alloc() invocations by
+ * selecting the appropriate general cache at compile time.
  * Please use this macro to create slab caches. Simply specify the
  * name of the structure and maybe some flags that are listed above.
  *

@@ -298,7 +298,7 @@ int slab_unmergeable(struct kmem_cache *s)
 	if (!is_root_cache(s))
 		return 1;
 
-	if (s->ctor)
+	if (s->ctor || s->isolate || s->migrate)
 		return 1;
 
 	if (s->usersize)
