@@ -180,6 +180,20 @@ Description:
 		list.  It can be written to clear the current count.
 		Available when CONFIG_SLUB_STATS is enabled.
 
+What:		/sys/kernel/slab/cache/defrag_used_ratio
+Date:		February 2019
+KernelVersion:	5.0
+Contact:	Christoph Lameter <cl@linux-foundation.org>
+		Pekka Enberg <penberg@cs.helsinki.fi>,
+Description:
+		The defrag_used_ratio file allows the control of how aggressive
+		slab fragmentation reduction works at reclaiming objects from
+		sparsely populated slabs. This is a percentage. If a slab has
+		less than this percentage of objects allocated then reclaim will
+		attempt to reclaim objects so that the whole slab page can be
+		freed. 0% specifies no reclaim attempt (defrag disabled), 100%
+		specifies attempt to reclaim all pages.  The default is 30%.
+
 What:		/sys/kernel/slab/cache/deactivate_to_tail
 Date:		February 2008
 KernelVersion:	2.6.25
