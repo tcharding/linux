@@ -337,6 +337,7 @@ static int smo_run_module_tests(int nr_objs, int keep)
 
 /*
  * struct functions() - Map command to a function pointer.
+ * If you update this please update the documentation in slub_defrag.py
  */
 struct functions {
 	char *fn_name;
