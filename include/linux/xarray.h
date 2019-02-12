@@ -407,6 +407,8 @@ static inline bool xa_marked(const struct xarray *xa, xa_mark_t mark)
  * you should use the xas_for_each() iterator instead.  The xas_for_each()
  * iterator will expand into more inline code than xa_for_each().
  *
+ * It is safe to erase entries from the XArray as you iterate over it.
+ *
  * Context: Any context.  Takes and releases the RCU lock.
  */
 #define xa_for_each(xa, index, entry) \

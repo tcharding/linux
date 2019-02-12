@@ -97,7 +97,8 @@ You can copy entries out of the XArray into a plain array by calling
 :c:func:`xa_extract`.  Or you can iterate over the present entries in
 the XArray by calling :c:func:`xa_for_each`.  You may prefer to use
 :c:func:`xa_find` or :c:func:`xa_find_after` to move to the next present
-entry in the XArray.
+entry in the XArray.  It is safe to call :c:func:`xa_release` on entries
+as you iterate over the array using :c:func:`xa_for_each`.
 
 Calling :c:func:`xa_store_range` stores the same entry in a range
 of indices.  If you do this, some of the other operations will behave
