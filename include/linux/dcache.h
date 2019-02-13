@@ -296,12 +296,14 @@ extern char *dentry_path(struct dentry *, char *, int);
 /* Allocation counts.. */
 
 /**
- *	dget, dget_dlock -	get a reference to a dentry
- *	@dentry: dentry to get a reference to
+ * dget_dlock() - Get a reference to a dentry.
+ * @dentry: The dentry to get a reference to.
  *
- *	Given a dentry or %NULL pointer increment the reference count
- *	if appropriate and return the dentry. A dentry will not be
- *	destroyed when it has references.
+ * Given a dentry or %NULL pointer increment the reference count if
+ * appropriate. A dentry will not be destroyed when it has references.
+ *
+ * Context: Caller must hold the dentry->d_lock.
+ * Return: The dentry.
  */
 static inline struct dentry *dget_dlock(struct dentry *dentry)
 {
@@ -310,6 +312,16 @@ static inline struct dentry *dget_dlock(struct dentry *dentry)
 	return dentry;
 }
 
+/**
+ * dget() - Get a reference to a dentry.
+ * @dentry: The dentry to get a reference to.
+ *
+ * Given a dentry or %NULL pointer increment the reference count if
+ * appropriate. A dentry will not be destroyed when it has references.
+ *
+ * Context: Takes the dentry->d_lock.
+ * Return: The dentry.
+ */
 static inline struct dentry *dget(struct dentry *dentry)
 {
 	if (dentry)
@@ -320,12 +332,11 @@ static inline struct dentry *dget(struct dentry *dentry)
 extern struct dentry *dget_parent(struct dentry *dentry);
 
 /**
- *	d_unhashed -	is dentry hashed
- *	@dentry: entry to check
+ * d_unhashed() - Is dentry unhashed.
+ * @dentry: The dentry to check.
  *
- *	Returns true if the dentry passed is not currently hashed.
+ * Return: True if the dentry passed is not currently hashed.
  */
-
 static inline int d_unhashed(const struct dentry *dentry)
 {
 	return hlist_bl_unhashed(&dentry->d_hash);
@@ -499,7 +510,7 @@ static inline unsigned long vfs_pressure_ratio(unsigned long val)
 }
 
 /**
- * d_inode - Get the actual inode of this dentry
+ * d_inode() - Get the actual inode of this dentry.
  * @dentry: The dentry to query
  *
  * This is the helper normal filesystems should use to get at their own inodes
@@ -511,7 +522,7 @@ static inline struct inode *d_inode(const struct dentry *dentry)
 }
 
 /**
- * d_inode_rcu - Get the actual inode of this dentry with READ_ONCE()
+ * d_inode_rcu() - Get the actual inode of this dentry with READ_ONCE().
  * @dentry: The dentry to query
  *
  * This is the helper normal filesystems should use to get at their own inodes
@@ -523,7 +534,7 @@ static inline struct inode *d_inode_rcu(const struct dentry *dentry)
 }
 
 /**
- * d_backing_inode - Get upper or lower inode we should be using
+ * d_backing_inode() - Get upper or lower inode we should be using.
  * @upper: The upper layer
  *
  * This is the helper that should be used to get at the inode that will be used
@@ -540,7 +551,7 @@ static inline struct inode *d_backing_inode(const struct dentry *upper)
 }
 
 /**
- * d_backing_dentry - Get upper or lower dentry we should be using
+ * d_backing_dentry() - Get upper or lower dentry we should be using.
  * @upper: The upper layer
  *
  * This is the helper that should be used to get the dentry of the inode that
@@ -555,9 +566,9 @@ static inline struct dentry *d_backing_dentry(struct dentry *upper)
 }
 
 /**
- * d_real - Return the real dentry
+ * d_real() - Return the real dentry.
  * @dentry: the dentry to query
- * @inode: inode to select the dentry from multiple layers (can be NULL)
+ * @inode: inode to select the dentry from multiple layers (can be %NULL)
  *
  * If dentry is on a union/overlay, then return the underlying, real dentry.
  * Otherwise return the dentry itself.
@@ -574,7 +585,7 @@ static inline struct dentry *d_real(struct dentry *dentry,
 }
 
 /**
- * d_real_inode - Return the real inode
+ * d_real_inode() - Return the real inode.
  * @dentry: The dentry to query
  *
  * If dentry is on a union/overlay, then return the underlying, real inode.
