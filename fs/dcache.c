@@ -30,6 +30,7 @@
 #include <linux/bit_spinlock.h>
 #include <linux/rculist_bl.h>
 #include <linux/list_lru.h>
+#include <linux/backing-dev.h>
 #include "internal.h"
 #include "mount.h"
 
@@ -3068,6 +3069,69 @@ void d_tmpfile(struct dentry *dentry, struct inode *inode)
 }
 EXPORT_SYMBOL(d_tmpfile);
 
+/*
+ * d_isolate() - Dentry isolation callback function.
+ * @s: The dentry cache.
+ * @v: Vector of pointers to the objects to isolate.
+ * @nr: Number of objects in @v.
+ *
+ * The slab allocator is holding off frees. We can safely examine
+ * the object without the danger of it vanishing from under us.
+ */
+static void *d_isolate(struct kmem_cache *s, void **v, int nr)
+{
+	struct dentry *dentry;
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		dentry = v[i];
+		__dget(dentry);
+	}
+
+	return NULL;		/* No need for private data */
+}
+
+/*
+ * d_migrate() - Dentry migration callback function.
+ * @s: The dentry cache.
+ * @v: Vector of pointers to the objects to migrate.
+ * @nr: Number of objects in @v.
+ * @node: The NUMA node where new object should be allocated.
+ * @private: Returned by d_isolate() (currently %NULL).
+ *
+ * Slab has dropped all the locks. Get rid of the refcount obtained
+ * earlier and also free the object.
+ */
+static void d_migrate(struct kmem_cache *s, void **v, int nr,
+		      int node, void *_unused)
+{
+	struct dentry *dentry;
+	LIST_HEAD(dispose);
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		dentry = v[i];
+		spin_lock(&dentry->d_lock);
+		dentry->d_lockref.count--;
+
+		if (dentry->d_lockref.count > 0 ||
+		    dentry->d_flags & DCACHE_SHRINK_LIST) {
+			spin_unlock(&dentry->d_lock);
+			continue;
+		}
+
+		if (dentry->d_flags & DCACHE_LRU_LIST)
+			d_lru_del(dentry);
+
+		d_shrink_add(dentry, &dispose);
+
+		spin_unlock(&dentry->d_lock);
+	}
+
+	if (!list_empty(&dispose))
+		shrink_dentry_list(&dispose);
+}
+
 static __initdata unsigned long dhash_entries;
 static int __init set_dhash_entries(char *str)
 {
@@ -3112,6 +3176,8 @@ static void __init dcache_init(void)
 					   offsetof(struct dentry, d_iname),
 					   sizeof_field(struct dentry, d_iname),
 					   dcache_ctor);
+
+	kmem_cache_setup_mobility(dentry_cache, d_isolate, d_migrate);
 
 	/* Hash may have been set up in dcache_init_early */
 	if (!hashdist)
