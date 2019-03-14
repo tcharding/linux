@@ -169,7 +169,7 @@ int proc_nr_dentry(struct ctl_table *table, int write, void __user *buffer,
 
 #include <asm/word-at-a-time.h>
 /*
- * NOTE! 'cs' and 'scount' come from a dentry, so it has a
+ * NOTE! 'cs' and 'scount' come from a dentry, so it has an
  * aligned allocation for this particular component. We don't
  * strictly need the load_unaligned_zeropad() safety, but it
  * doesn't hurt either.
@@ -500,7 +500,7 @@ static inline void dentry_unlist(struct dentry *dentry, struct dentry *parent)
 	struct dentry *next;
 	/*
 	 * Inform d_walk() and shrink_dentry_list() that we are no longer
-	 * attached to the dentry tree
+	 * attached to the dentry tree.
 	 */
 	dentry->d_flags |= DCACHE_DENTRY_KILLED;
 	if (unlikely(list_empty(&dentry->d_child)))
@@ -540,13 +540,11 @@ static void __dentry_kill(struct dentry *dentry)
 	if (!IS_ROOT(dentry))
 		parent = dentry->d_parent;
 
-	/*
-	 * The dentry is now unrecoverably dead to the world.
-	 */
+	/* The dentry is now unrecoverably dead to the world. */
 	lockref_mark_dead(&dentry->d_lockref);
 
 	/*
-	 * inform the fs via d_prune that this dentry is about to be
+	 * Inform the fs via d_prune that this dentry is about to be
 	 * unhashed and destroyed.
 	 */
 	if (dentry->d_flags & DCACHE_OP_PRUNE)
@@ -1048,6 +1046,7 @@ static bool shrink_lock_dentry(struct dentry *dentry)
 		return true;
 	spin_unlock(&parent->d_lock);
 out:
+
 	if (inode)
 		spin_unlock(&inode->i_lock);
 	return false;
@@ -1129,7 +1128,7 @@ static enum lru_status dentry_lru_isolate(struct list_head *item,
 		 * This is guaranteed by the fact that all LRU management
 		 * functions are intermediated by the LRU API calls like
 		 * list_lru_add and list_lru_del. List movement in this file
-		 * only ever occur through this functions or through callbacks
+		 * only ever occurs through this functions or through callbacks
 		 * like this one, that are called from the LRU API.
 		 *
 		 * The only exceptions to this are functions like
@@ -1617,7 +1616,7 @@ struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
 	 * We guarantee that the inline name is always NUL-terminated.
 	 * This way the memcpy() done by the name switching in rename
 	 * will still always have a NUL at the end, even if we might
-	 * be overwriting an internal NUL character
+	 * be overwriting an internal NUL character.
 	 */
 	dentry->d_iname[DNAME_INLINE_LEN-1] = 0;
 	if (unlikely(!name)) {
@@ -1694,8 +1693,8 @@ struct dentry *d_alloc(struct dentry * parent, const struct qstr *name)
 	dentry->d_flags |= DCACHE_RCUACCESS;
 	spin_lock(&parent->d_lock);
 	/*
-	 * don't need child lock because it is not subject
-	 * to concurrency here
+	 * Do not need child lock because it is not subject
+	 * to concurrency here.
 	 */
 	__dget_dlock(parent);
 	dentry->d_parent = parent;
@@ -1923,7 +1922,7 @@ static struct dentry *__d_instantiate_anon(struct dentry *dentry,
 		goto out_iput;
 	}
 
-	/* attach a disconnected dentry */
+	/* Attach a disconnected dentry. */
 	add_flags = d_flags_for_inode(inode);
 
 	if (disconnected)
@@ -2496,8 +2495,8 @@ retry:
 
 		rcu_read_unlock();
 		/*
-		 * somebody is likely to be still doing lookup for it;
-		 * wait for them to finish
+		 * Somebody is likely to be still doing lookup for it;
+		 * wait for them to finish.
 		 */
 		spin_lock(&dentry->d_lock);
 		d_wait_lookup(dentry);
@@ -2521,7 +2520,7 @@ retry:
 		return dentry;
 	}
 	rcu_read_unlock();
-	/* we can't take ->d_lock here; it's OK, though. */
+	/* We can't take ->d_lock here; it's OK, though. */
 	new->d_flags |= DCACHE_PAR_LOOKUP;
 	new->d_wait = wq;
 	hlist_bl_add_head_rcu(&new->d_u.d_in_lookup_hash, b);
@@ -2549,8 +2548,7 @@ void __d_lookup_done(struct dentry *dentry)
 }
 EXPORT_SYMBOL(__d_lookup_done);
 
-/* inode->i_lock held if inode is non-NULL */
-
+/* Caller holds inode->i_lock if inode is non-NULL */
 static inline void __d_add(struct dentry *dentry, struct inode *inode)
 {
 	struct inode *dir = NULL;
@@ -2732,7 +2730,7 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 		BUG_ON(p);
 		spin_lock(&target->d_parent->d_lock);
 	} else if (!p) {
-		/* target is not a descendent of dentry->d_parent */
+		/* Target is not a descendent of dentry->d_parent. */
 		spin_lock(&target->d_parent->d_lock);
 		spin_lock_nested(&old_parent->d_lock, DENTRY_D_LOCK_NESTED);
 	} else {
@@ -2926,7 +2924,7 @@ struct dentry *d_splice_alias(struct inode *inode, struct dentry *dentry)
 	if (S_ISDIR(inode->i_mode)) {
 		struct dentry *new = __d_find_any_alias(inode);
 		if (unlikely(new)) {
-			/* The reference to new ensures it remains an alias */
+			/* The reference to new ensures it remains an alias. */
 			spin_unlock(&inode->i_lock);
 			write_seqlock(&rename_lock);
 			if (unlikely(d_ancestor(new, dentry))) {
@@ -3055,7 +3053,8 @@ __setup("dhash_entries=", set_dhash_entries);
 
 static void __init dcache_init_early(void)
 {
-	/* If hashes are distributed across NUMA nodes, defer
+	/*
+	 * If hashes are distributed across NUMA nodes, defer
 	 * hash allocation until vmalloc space is available.
 	 */
 	if (hashdist)
@@ -3085,7 +3084,7 @@ static void __init dcache_init(void)
 		SLAB_RECLAIM_ACCOUNT|SLAB_PANIC|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
 		d_iname);
 
-	/* Hash may have been set up in dcache_init_early */
+	/* Hash may have been set up in dcache_init_early. */
 	if (!hashdist)
 		return;
 

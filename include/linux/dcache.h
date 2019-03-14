@@ -92,8 +92,7 @@ struct dentry {
 	struct hlist_bl_node d_hash;	/* lookup hash list */
 	struct dentry *d_parent;	/* parent directory */
 	struct qstr d_name;
-	struct inode *d_inode;		/* Where the name belongs to - NULL is
-					 * negative */
+	struct inode *d_inode;		/* inode for name - NULL is negative */
 	unsigned char d_iname[DNAME_INLINE_LEN];	/* small names */
 
 	/* Ref lookup also touches following */
@@ -152,7 +151,7 @@ struct dentry_operations {
  * Locking rules for dentry_operations callbacks are to be found in
  * Documentation/filesystems/Locking. Keep it updated!
  *
- * FUrther descriptions are found in Documentation/filesystems/vfs.txt.
+ * Further descriptions are found in Documentation/filesystems/vfs.txt.
  * Keep it updated too!
  */
 
@@ -162,17 +161,18 @@ struct dentry_operations {
 #define DCACHE_OP_REVALIDATE		0x00000004
 #define DCACHE_OP_DELETE		0x00000008
 #define DCACHE_OP_PRUNE			0x00000010
-
+/*
+ * This dentry is possibly not currently connected to the dcache tree,
+ * in which case its parent will either be itself, or will have this
+ * flag as well.  nfsd will not use a dentry with this bit set, but will
+ * first endeavour to clear the bit either by discovering that it is
+ * connected, or by performing lookup operations.  Any filesystem which
+ * supports nfsd_operations MUST have a lookup function which, if it
+ * finds a directory inode with a DCACHE_DISCONNECTED dentry, will
+ * d_move that dentry into place and return that dentry rather than the
+ * passed one, typically using d_splice_alias.
+ */
 #define	DCACHE_DISCONNECTED		0x00000020
-     /* This dentry is possibly not currently connected to the dcache tree, in
-      * which case its parent will either be itself, or will have this flag as
-      * well.  nfsd will not use a dentry with this bit set, but will first
-      * endeavour to clear the bit either by discovering that it is connected,
-      * or by performing lookup operations.   Any filesystem which supports
-      * nfsd_operations MUST have a lookup function which, if it finds a
-      * directory inode with a DCACHE_DISCONNECTED dentry, will d_move that
-      * dentry into place and return that dentry rather than the passed one,
-      * typically using d_splice_alias. */
 
 #define DCACHE_REFERENCED		0x00000040 /* Recently used, don't discard. */
 #define DCACHE_RCUACCESS		0x00000080 /* Entry has ever been RCU-visible */
@@ -182,19 +182,17 @@ struct dentry_operations {
 #define DCACHE_SHRINK_LIST		0x00000400
 
 #define DCACHE_OP_WEAK_REVALIDATE	0x00000800
-
+/* This dentry has been "silly renamed" and has to be deleted on the last dput(). */
 #define DCACHE_NFSFS_RENAMED		0x00001000
-     /* this dentry has been "silly renamed" and has to be deleted on the last
-      * dput() */
 #define DCACHE_COOKIE			0x00002000 /* For use by dcookie subsystem */
+/* Parent inode is watched by some fsnotify listener. */
 #define DCACHE_FSNOTIFY_PARENT_WATCHED	0x00004000
-     /* Parent inode is watched by some fsnotify listener */
 
 #define DCACHE_DENTRY_KILLED		0x00008000
 
-#define DCACHE_MOUNTED			0x00010000 /* is a mountpoint */
-#define DCACHE_NEED_AUTOMOUNT		0x00020000 /* handle automount on this dir */
-#define DCACHE_MANAGE_TRANSIT		0x00040000 /* manage transit from this dirent */
+#define DCACHE_MOUNTED			0x00010000 /* Is a mountpoint */
+#define DCACHE_NEED_AUTOMOUNT		0x00020000 /* Handle automount on this dir */
+#define DCACHE_MANAGE_TRANSIT		0x00040000 /* Manage transit from this dirent */
 #define DCACHE_MANAGED_DENTRY \
 	(DCACHE_MOUNTED|DCACHE_NEED_AUTOMOUNT|DCACHE_MANAGE_TRANSIT)
 
@@ -262,9 +260,7 @@ extern void d_prune_aliases(struct inode *);
 /* test whether we have any submounts in a subdir tree */
 extern int path_has_submounts(const struct path *);
 
-/*
- * This adds the entry to the hash queues.
- */
+/* This adds the entry to the hash queues. */
 extern void d_rehash(struct dentry *);
 
 extern void d_add(struct dentry *, struct inode *);
@@ -286,9 +282,7 @@ static inline unsigned d_count(const struct dentry *dentry)
 	return dentry->d_lockref.count;
 }
 
-/*
- * helper function for dentry_operations.d_dname() members
- */
+/* Helper function for dentry_operations.d_dname() members. */
 extern __printf(4, 5)
 char *dynamic_dname(struct dentry *, char *, int, const char *, ...);
 extern char *simple_dname(struct dentry *, char *, int);
