@@ -429,21 +429,11 @@ static void d_lru_shrink_move(struct list_lru_one *lru, struct dentry *dentry,
 	list_lru_isolate_move(lru, &dentry->d_lru, list);
 }
 
-/**
- * d_drop - drop a dentry
- * @dentry: dentry to drop
+/*
+ * ___d_drop() - Drop a dentry.
+ * @dentry: The dentry to drop.
  *
- * d_drop() unhashes the entry from the parent dentry hashes, so that it won't
- * be found through a VFS lookup any more. Note that this is different from
- * deleting the dentry - d_delete will try to mark the dentry negative if
- * possible, giving a successful _negative_ lookup, while d_drop will
- * just make the cache lookup fail.
- *
- * d_drop() is used mainly for stuff that wants to invalidate a dentry for some
- * reason (NFS timeouts or autofs deletes).
- *
- * __d_drop requires dentry->d_lock
- * ___d_drop doesn't mark dentry as "unhashed"
+ * Does not mark dentry as "unhashed"
  *   (dentry->d_hash.pprev will be LIST_POISON2, not NULL).
  */
 static void ___d_drop(struct dentry *dentry)
@@ -464,6 +454,21 @@ static void ___d_drop(struct dentry *dentry)
 	hlist_bl_unlock(b);
 }
 
+/**
+ * __d_drop() - Drop a dentry.
+ * @dentry: The dentry to drop.
+ *
+ * Unhashes the entry from the parent dentry hashes, so that it won't
+ * be found through a VFS lookup any more. Note that this is different
+ * from deleting the dentry - d_delete() will try to mark the dentry
+ * negative if possible, giving a successful _negative_ lookup, while
+ * __d_drop() will just make the cache lookup fail.
+ *
+ * __d_drop() is used mainly for stuff that wants to invalidate a dentry
+ * for some reason (NFS timeouts or autofs deletes).
+ *
+ * Context: Caller must hold the dentry->d_lock.
+ */
 void __d_drop(struct dentry *dentry)
 {
 	if (!d_unhashed(dentry)) {
@@ -474,6 +479,14 @@ void __d_drop(struct dentry *dentry)
 }
 EXPORT_SYMBOL(__d_drop);
 
+/**
+ * d_drop() - Drop a dentry.
+ * @dentry: The dentry to drop.
+ *
+ * Wrapper around __d_drop() that handles the locking.
+ *
+ * Context: Takes/drops the dentry->d_lock.
+ */
 void d_drop(struct dentry *dentry)
 {
 	spin_lock(&dentry->d_lock);
