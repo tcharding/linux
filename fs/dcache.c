@@ -366,7 +366,7 @@ static void dentry_unlink_inode(struct dentry * dentry)
  * LRU list _and_ the DCACHE_SHRINK_LIST use.
  *
  * The DCACHE_SHRINK_LIST bit is set whenever the dentry is
- * on the shrink list (ie not on the superblock LRU list).
+ * on the shrink list (i.e. not on the superblock LRU list).
  *
  * The per-cpu "nr_dentry_unused" counters are updated with
  * the DCACHE_LRU_LIST bit.
@@ -408,7 +408,7 @@ static void d_shrink_add(struct dentry *dentry, struct list_head *list)
 }
 
 /*
- * These can only be called under the global LRU lock, ie during the
+ * These can only be called under the global LRU lock, i.e. during the
  * callback for freeing the LRU list. "isolate" removes it from the
  * LRU lists entirely, while shrink_move moves it to the indicated
  * private list.
