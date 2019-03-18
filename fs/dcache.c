@@ -2229,7 +2229,7 @@ EXPORT_SYMBOL(d_lookup);
  * false-negative result due to unrelated rename activity.
  *
  * __d_lookup is slightly faster by avoiding rename_lock read seqlock,
- * however it must be used carefully, eg. with a following d_lookup in
+ * however it must be used carefully, e.g. with a following d_lookup in
  * the case of failure.
  *
  * __d_lookup callers must be commented.
