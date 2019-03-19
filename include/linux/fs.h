@@ -356,38 +356,40 @@ struct address_space_operations {
 	 * PURELY used for read-ahead!.
 	 */
 	int (*readpages)(struct file *filp, struct address_space *mapping,
-			struct list_head *pages, unsigned nr_pages);
+			 struct list_head *pages, unsigned nr_pages);
 
 	int (*write_begin)(struct file *, struct address_space *mapping,
-				loff_t pos, unsigned len, unsigned flags,
-				struct page **pagep, void **fsdata);
+			   loff_t pos, unsigned len, unsigned flags,
+			   struct page **pagep, void **fsdata);
 	int (*write_end)(struct file *, struct address_space *mapping,
-				loff_t pos, unsigned len, unsigned copied,
-				struct page *page, void *fsdata);
+			 loff_t pos, unsigned len, unsigned copied,
+			 struct page *page, void *fsdata);
 
 	/* Unfortunately this kludge is needed for FIBMAP. Don't use it */
 	sector_t (*bmap)(struct address_space *, sector_t);
-	void (*invalidatepage) (struct page *, unsigned int, unsigned int);
-	int (*releasepage) (struct page *, gfp_t);
+	void (*invalidatepage)(struct page *, unsigned int offset,
+			       unsigned int length);
+	int (*releasepage)(struct page *, gfp_t);
 	void (*freepage)(struct page *);
 	ssize_t (*direct_IO)(struct kiocb *, struct iov_iter *iter);
 	/*
 	 * migrate the contents of a page to the specified target. If
 	 * migrate_mode is MIGRATE_ASYNC, it must not block.
 	 */
-	int (*migratepage) (struct address_space *,
-			struct page *, struct page *, enum migrate_mode);
+	int (*migratepage)(struct address_space *mapping,
+			   struct page *newpage, struct page *page,
+			   enum migrate_mode mode);
 	bool (*isolate_page)(struct page *, isolate_mode_t);
 	void (*putback_page)(struct page *);
-	int (*launder_page) (struct page *);
-	int (*is_partially_uptodate) (struct page *, unsigned long,
-					unsigned long);
-	void (*is_dirty_writeback) (struct page *, bool *, bool *);
+	int (*launder_page)(struct page *);
+	int (*is_partially_uptodate)(struct page *, unsigned long from,
+				     unsigned long count);
+	void (*is_dirty_writeback)(struct page *, bool *dirty, bool *writeback);
 	int (*error_remove_page)(struct address_space *, struct page *);
 
 	/* swapfile support */
 	int (*swap_activate)(struct swap_info_struct *sis, struct file *file,
-				sector_t *span);
+			     sector_t *span);
 	void (*swap_deactivate)(struct file *file);
 };
 
@@ -1784,73 +1786,82 @@ struct iov_iter;
 
 struct file_operations {
 	struct module *owner;
-	loff_t (*llseek) (struct file *, loff_t, int);
-	ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
-	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
-	ssize_t (*read_iter) (struct kiocb *, struct iov_iter *);
-	ssize_t (*write_iter) (struct kiocb *, struct iov_iter *);
-	int (*iterate) (struct file *, struct dir_context *);
-	int (*iterate_shared) (struct file *, struct dir_context *);
-	__poll_t (*poll) (struct file *, struct poll_table_struct *);
-	long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
-	long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
-	int (*mmap) (struct file *, struct vm_area_struct *);
+	loff_t (*llseek)(struct file *, loff_t, int whence);
+	ssize_t (*read)(struct file *, char __user *buf, size_t bufsz,
+			loff_t *ppos);
+	ssize_t (*write)(struct file *, const char __user *buf, size_t bufsz,
+			 loff_t *ppos);
+	ssize_t (*read_iter)(struct kiocb *, struct iov_iter *);
+	ssize_t (*write_iter)(struct kiocb *, struct iov_iter *);
+	int (*iterate)(struct file *, struct dir_context *);
+	int (*iterate_shared)(struct file *, struct dir_context *);
+	__poll_t (*poll)(struct file *, struct poll_table_struct *);
+	long (*unlocked_ioctl)(struct file *, unsigned int cmd, unsigned long arg);
+	long (*compat_ioctl)(struct file *, unsigned int cmd, unsigned long arg);
+	int (*mmap)(struct file *, struct vm_area_struct *);
 	unsigned long mmap_supported_flags;
-	int (*open) (struct inode *, struct file *);
-	int (*flush) (struct file *, fl_owner_t id);
-	int (*release) (struct inode *, struct file *);
-	int (*fsync) (struct file *, loff_t, loff_t, int datasync);
-	int (*fasync) (int, struct file *, int);
-	int (*lock) (struct file *, int, struct file_lock *);
-	ssize_t (*sendpage) (struct file *, struct page *, int, size_t, loff_t *, int);
-	unsigned long (*get_unmapped_area)(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
-	int (*check_flags)(int);
-	int (*flock) (struct file *, int, struct file_lock *);
-	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *, size_t, unsigned int);
-	ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
-	int (*setlease)(struct file *, long, struct file_lock **, void **);
-	long (*fallocate)(struct file *file, int mode, loff_t offset,
-			  loff_t len);
+	int (*open)(struct inode *, struct file *);
+	int (*flush)(struct file *, fl_owner_t id);
+	int (*release)(struct inode *, struct file *);
+	int (*fsync)(struct file *, loff_t start, loff_t end, int datasync);
+	int (*fasync)(int fd, struct file *, int flags);
+	int (*lock)(struct file *, int cmd, struct file_lock *);
+	ssize_t (*sendpage)(struct file *, struct page *, int, size_t, loff_t *, int);
+	unsigned long (*get_unmapped_area)(struct file *, unsigned long addr,
+					   unsigned long len, unsigned long pgoff,
+					   unsigned long flags);
+	int (*check_flags)(int flags);
+	int (*flock)(struct file *, int cmd, struct file_lock *);
+	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *,
+				size_t len, unsigned int flags);
+	ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *,
+			       size_t len, unsigned int flags);
+	int (*setlease)(struct file *, long arg, struct file_lock **, void **priv);
+	long (*fallocate)(struct file *, int mode, loff_t offset, loff_t len);
 	void (*show_fdinfo)(struct seq_file *m, struct file *f);
 #ifndef CONFIG_MMU
 	unsigned (*mmap_capabilities)(struct file *);
 #endif
-	ssize_t (*copy_file_range)(struct file *, loff_t, struct file *,
-			loff_t, size_t, unsigned int);
+	ssize_t (*copy_file_range)(struct file *file_in, loff_t pos_in,
+				   struct file *file_out, loff_t pos_out,
+				   size_t len, unsigned int copy_flags);
 	loff_t (*remap_file_range)(struct file *file_in, loff_t pos_in,
 				   struct file *file_out, loff_t pos_out,
 				   loff_t len, unsigned int remap_flags);
-	int (*fadvise)(struct file *, loff_t, loff_t, int);
+	int (*fadvise)(struct file *, loff_t offset, loff_t len, int advice);
 } __randomize_layout;
 
 struct inode_operations {
-	struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
-	const char * (*get_link) (struct dentry *, struct inode *, struct delayed_call *);
-	int (*permission) (struct inode *, int);
-	struct posix_acl * (*get_acl)(struct inode *, int);
+	struct dentry * (*lookup)(struct inode *dir, struct dentry *dentry,
+				  unsigned int flags);
+	const char * (*get_link)(struct dentry *, struct inode *, struct delayed_call *);
+	int (*permission)(struct inode *, int mask);
+	struct posix_acl * (*get_acl)(struct inode *inode, int type);
 
-	int (*readlink) (struct dentry *, char __user *,int);
+	int (*readlink)(struct dentry *, char __user *buf, int bufsz);
 
-	int (*create) (struct inode *,struct dentry *, umode_t, bool);
-	int (*link) (struct dentry *,struct inode *,struct dentry *);
-	int (*unlink) (struct inode *,struct dentry *);
-	int (*symlink) (struct inode *,struct dentry *,const char *);
-	int (*mkdir) (struct inode *,struct dentry *,umode_t);
-	int (*rmdir) (struct inode *,struct dentry *);
-	int (*mknod) (struct inode *,struct dentry *,umode_t,dev_t);
-	int (*rename) (struct inode *, struct dentry *,
-			struct inode *, struct dentry *, unsigned int);
-	int (*setattr) (struct dentry *, struct iattr *);
-	int (*getattr) (const struct path *, struct kstat *, u32, unsigned int);
-	ssize_t (*listxattr) (struct dentry *, char *, size_t);
+	int (*create)(struct inode *, struct dentry *, umode_t, bool);
+	int (*link)(struct dentry *, struct inode *, struct dentry *);
+	int (*unlink)(struct inode *, struct dentry *);
+	int (*symlink)(struct inode *, struct dentry *, const char *symname);
+	int (*mkdir)(struct inode *, struct dentry *, umode_t);
+	int (*rmdir)(struct inode *, struct dentry *);
+	int (*mknod)(struct inode *, struct dentry *, umode_t, dev_t);
+	int (*rename)(struct inode *old_inode, struct dentry *old_dentry,
+		      struct inode *new_inode, struct dentry *new_dentry,
+		      unsigned int flags);
+	int (*setattr)(struct dentry *, struct iattr *);
+	int (*getattr)(const struct path *, struct kstat *,
+		       u32 request_mask, unsigned int flags);
+	ssize_t (*listxattr)(struct dentry *, char *buf, size_t bufsz);
 	int (*fiemap)(struct inode *, struct fiemap_extent_info *, u64 start,
 		      u64 len);
-	int (*update_time)(struct inode *, struct timespec64 *, int);
+	int (*update_time)(struct inode *, struct timespec64 *, int flags);
 	int (*atomic_open)(struct inode *, struct dentry *,
 			   struct file *, unsigned open_flag,
 			   umode_t create_mode);
-	int (*tmpfile) (struct inode *, struct dentry *, umode_t);
-	int (*set_acl)(struct inode *, struct posix_acl *, int);
+	int (*tmpfile)(struct inode *, struct dentry *, umode_t);
+	int (*set_acl)(struct inode *, struct posix_acl *, int type);
 } ____cacheline_aligned;
 
 static inline ssize_t call_read_iter(struct file *file, struct kiocb *kio,
@@ -1900,30 +1911,32 @@ extern loff_t vfs_dedupe_file_range_one(struct file *src_file, loff_t src_pos,
 
 
 struct super_operations {
-   	struct inode *(*alloc_inode)(struct super_block *sb);
+	struct inode *(*alloc_inode)(struct super_block *sb);
 	void (*destroy_inode)(struct inode *);
 
-   	void (*dirty_inode) (struct inode *, int flags);
-	int (*write_inode) (struct inode *, struct writeback_control *wbc);
-	int (*drop_inode) (struct inode *);
-	void (*evict_inode) (struct inode *);
-	void (*put_super) (struct super_block *);
+	void (*dirty_inode)(struct inode *, int flags);
+	int (*write_inode)(struct inode *, struct writeback_control *wbc);
+	int (*drop_inode)(struct inode *);
+	void (*evict_inode)(struct inode *);
+	void (*put_super)(struct super_block *);
 	int (*sync_fs)(struct super_block *sb, int wait);
-	int (*freeze_super) (struct super_block *);
-	int (*freeze_fs) (struct super_block *);
-	int (*thaw_super) (struct super_block *);
-	int (*unfreeze_fs) (struct super_block *);
-	int (*statfs) (struct dentry *, struct kstatfs *);
-	int (*remount_fs) (struct super_block *, int *, char *);
-	void (*umount_begin) (struct super_block *);
+	int (*freeze_super)(struct super_block *);
+	int (*freeze_fs)(struct super_block *);
+	int (*thaw_super)(struct super_block *);
+	int (*unfreeze_fs)(struct super_block *);
+	int (*statfs)(struct dentry *, struct kstatfs *);
+	int (*remount_fs)(struct super_block *, int *flags, char *options);
+	void (*umount_begin)(struct super_block *);
 
 	int (*show_options)(struct seq_file *, struct dentry *);
 	int (*show_devname)(struct seq_file *, struct dentry *);
 	int (*show_path)(struct seq_file *, struct dentry *);
 	int (*show_stats)(struct seq_file *, struct dentry *);
 #ifdef CONFIG_QUOTA
-	ssize_t (*quota_read)(struct super_block *, int, char *, size_t, loff_t);
-	ssize_t (*quota_write)(struct super_block *, int, const char *, size_t, loff_t);
+	ssize_t (*quota_read)(struct super_block *sb, int type, char *data,
+			      size_t len, loff_t off);
+	ssize_t (*quota_write)(struct super_block *sb, int type,
+			       const char *data, size_t len, loff_t off);
 	struct dquot **(*get_dquots)(struct inode *);
 #endif
 	int (*bdev_try_to_free_page)(struct super_block*, struct page*, gfp_t);
@@ -2177,11 +2190,11 @@ struct file_system_type {
 #define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
 	int (*init_fs_context)(struct fs_context *);
 	const struct fs_parameter_description *parameters;
-	struct dentry *(*mount) (struct file_system_type *, int,
-		       const char *, void *);
-	void (*kill_sb) (struct super_block *);
+	struct dentry *(*mount)(struct file_system_type *fs_type, int flags,
+				const char *dev_name, void *data);
+	void (*kill_sb)(struct super_block *);
 	struct module *owner;
-	struct file_system_type * next;
+	struct file_system_type *next;
 	struct hlist_head fs_supers;
 
 	struct lock_class_key s_lock_key;
