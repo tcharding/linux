@@ -448,9 +448,8 @@ int simple_write_begin(struct file *file, struct address_space *mapping,
 EXPORT_SYMBOL(simple_write_begin);
 
 /**
- * simple_write_end - .write_end helper for non-block-device FSes
- * @available: See .write_end of address_space_operations
- * @file: 		"
+ * simple_write_end() - .write_end helper for non-block-device FSes
+ * @file: See .write_end of &struct address_space_operations
  * @mapping: 		"
  * @pos: 		"
  * @len: 		"
@@ -458,17 +457,21 @@ EXPORT_SYMBOL(simple_write_begin);
  * @page: 		"
  * @fsdata: 		"
  *
- * simple_write_end does the minimum needed for updating a page after writing is
- * done. It has the same API signature as the .write_end of
- * address_space_operations vector. So it can just be set onto .write_end for
- * FSes that don't need any other processing. i_mutex is assumed to be held.
- * Block based filesystems should use generic_write_end().
- * NOTE: Even though i_size might get updated by this function, mark_inode_dirty
- * is not called, so a filesystem that actually does store data in .write_inode
- * should extend on what's done here with a call to mark_inode_dirty() in the
- * case that i_size has changed.
+ * Does the minimum needed for updating a page after writing is done.
+ * It has the same API signature as the .write_end member of &struct
+ * address_space_operations vector.  So it can just be set onto
+ * .write_end for FSes that don't need any other processing.  Block
+ * based filesystems should use generic_write_end().
+ *
+ * NOTE: Even though i_size might get updated by this function,
+ * mark_inode_dirty() is not called, so a filesystem that actually does
+ * store data in .write_inode should extend on what's done here with a
+ * call to mark_inode_dirty() in the case that i_size has changed.
  *
  * Use *ONLY* with simple_readpage()
+ *
+ * Context: Caller must hold i_mutex
+ * Return: @copied argument unmodified.
  */
 int simple_write_end(struct file *file, struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned copied,
