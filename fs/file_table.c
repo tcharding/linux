@@ -65,8 +65,8 @@ static long get_nr_files(void)
 	return percpu_counter_read_positive(&nr_files);
 }
 
-/*
- * Return the maximum number of open files in the system
+/**
+ * get_max_files() - Get the maximum number of open files in the system.
  */
 unsigned long get_max_files(void)
 {
@@ -178,8 +178,7 @@ struct file *alloc_empty_file_noaccount(int flags, const struct cred *cred)
 }
 
 /**
- * alloc_file - allocate and initialize a 'struct file'
- *
+ * alloc_file() - Allocate and initialize a &struct file.
  * @path: the (dentry, vfsmount) pair for the new file
  * @flags: O_... flags with which the new file will be opened
  * @fop: the 'struct file_operations' for the new file
@@ -210,6 +209,20 @@ static struct file *alloc_file(const struct path *path, int flags,
 	return file;
 }
 
+/**
+ * alloc_file_pseudo() - Allocate a pseudo file.
+ * @inode: The inode to fill in.
+ * @mnt: The vfsmount to use.
+ * @name: Name to used for newly allocated pseudo dentry.
+ * @flags: ``O_...`` flags with which the new file will be opened.
+ * @fops: fops for the new file.
+ *
+ * Allocate a pseudo dentry, fill in @inode information in the dentry
+ * (i.e. instantiate @inode).  Create a &struct path from the dentry and
+ * @mnt.  Allocate a &struct file from the newly created path.
+ *
+ * Return: The newly allocated file or -ENOMEM on error.
+ */
 struct file *alloc_file_pseudo(struct inode *inode, struct vfsmount *mnt,
 				const char *name, int flags,
 				const struct file_operations *fops)
