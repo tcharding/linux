@@ -629,14 +629,18 @@ err_release:
 EXPORT_SYMBOL_GPL(posix_acl_create);
 
 /**
- * posix_acl_update_mode  -  update mode in set_acl
+ * posix_acl_update_mode() - Update mode in set_acl.
+ * @inode: The inode we are working on.
+ * @mode_p: New mode to use when updating.
+ * @acl: ACL we are operating on.
  *
- * Update the file mode when setting an ACL: compute the new file permission
- * bits based on the ACL.  In addition, if the ACL is equivalent to the new
- * file mode, set *acl to NULL to indicate that no ACL should be set.
+ * Update the file mode when setting an ACL, compute the new file
+ * permission bits based on the ACL.  In addition, if the ACL is
+ * equivalent to the new file mode, set ``*acl`` to %NULL to indicate
+ * that no ACL should be set.
  *
- * As with chmod, clear the setgit bit if the caller is not in the owning group
- * or capable of CAP_FSETID (see inode_change_ok).
+ * As with chmod, clear the SGID bit if the caller is not in the owning
+ * group or capable of CAP_FSETID (see setattr_prepare()).
  *
  * Called from set_acl inode operations.
  */
