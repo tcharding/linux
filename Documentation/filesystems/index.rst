@@ -5,6 +5,12 @@ Linux Filesystems API
 The Linux VFS
 =============
 
+.. toctree::
+   :maxdepth: 2
+
+   vfs
+
+
 The Filesystem types
 --------------------
 

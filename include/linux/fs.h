@@ -1974,7 +1974,6 @@ struct block_device_operations;
 /*
  * These flags control the behavior of the remap_file_range function pointer.
  * If it is called with len == 0 that means "remap to end of source file".
- * See Documentation/filesystems/vfs.txt for more details about this call.
  *
  * REMAP_FILE_DEDUP: only remap if contents identical (i.e. deduplicate)
  * REMAP_FILE_CAN_SHORTEN: caller can handle a shortened request
@@ -2607,9 +2606,10 @@ struct super_operations {
 	void (*umount_begin)(struct super_block *);
 
 	/**
-	 * @show_options: Called by the VFS to show mount options for
-	 * /proc/<pid>/mounts (see vfs.rst "Mount Options" section).
-	 */
+	  * @show_options: Called by the VFS to show mount options for
+	  * /proc/<pid>/mounts
+	  * (see vfs.rst :ref:`Mount Options <vfs_mount_options>`).
+	  */
 	int (*show_options)(struct seq_file *, struct dentry *);
 
 	/**
@@ -2948,15 +2948,15 @@ struct file_system_type {
 	const struct fs_parameter_description *parameters;
 	/**
 	 * @mount: The method to call when a new instance of this
-	 * filesystem should be mounted.  Please see vfs.rst
-	 * section file_system_type for further documentation.
+	 * filesystem should be mounted.  Please see :ref:`vfs.rst
+	 * <vfs_file_system_type>` for further documentation.
 	 *
 	 * @fs_type: Describes the filesystem, partly initialized by
 	 * the specific filesystem code.
 	 * @flags: The mount flags.
 	 * @dev_name: The device name we are mounting.
 	 * @data: Arbitrary mount options, usually comes as an ASCII string
-	 * (see "Mount Options" section of Documentation/filesystems/vfs.rst).
+	 * (see vfs.rst :ref:`Mount Options <vfs_mount_options>`).
 	 */
 	struct dentry *(*mount)(struct file_system_type *fs_type, int flags,
 				const char *dev_name, void *data);

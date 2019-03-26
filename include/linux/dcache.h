@@ -264,7 +264,8 @@ struct dentry_operations {
 	 * quite tricky.  The correct way to return for example "Hello"
 	 * is to put it at the end of the buffer, and returns a pointer
 	 * to the first char.  dynamic_dname() helper function is
-	 * provided to take care of this.  (See vfs.rst for an example.)
+	 * provided to take care of this.
+	 * (See :ref:`vfs.rst <d_dname_example>` for an example.)
 	 */
 	char *(*d_dname)(struct dentry *, char *, int);
 
@@ -327,9 +328,6 @@ struct dentry_operations {
 /*
  * Locking rules for dentry_operations callbacks are to be found in
  * Documentation/filesystems/Locking. Keep it updated!
- *
- * Further descriptions are found in Documentation/filesystems/vfs.txt.
- * Keep it updated too!
  */
 
 /* d_flags entries */
@@ -749,8 +747,6 @@ static inline struct dentry *d_backing_dentry(struct dentry *upper)
  *
  * If dentry is on a union/overlay, then return the underlying, real dentry.
  * Otherwise return the dentry itself.
- *
- * See also: Documentation/filesystems/vfs.txt
  */
 static inline struct dentry *d_real(struct dentry *dentry,
 				    const struct inode *inode)
