@@ -180,7 +180,7 @@ struct file *alloc_empty_file_noaccount(int flags, const struct cred *cred)
 /**
  * alloc_file() - Allocate and initialize a &struct file.
  * @path: the (dentry, vfsmount) pair for the new file
- * @flags: O_... flags with which the new file will be opened
+ * @flags: ``O_...`` flags with which the new file will be opened
  * @fop: the 'struct file_operations' for the new file
  */
 static struct file *alloc_file(const struct path *path, int flags,
