@@ -814,7 +814,7 @@ static inline bool fast_dput(struct dentry *dentry)
 
 /**
  * dput() - Release a dentry.
- * @dentry: dentry to release
+ * @dentry: The dentry to release.
  *
  * Release a dentry. This will drop the usage count and if appropriate
  * call the dentry unlink method as well as removing it from the queues and
@@ -910,7 +910,7 @@ static struct dentry * __d_find_any_alias(struct inode *inode)
 
 /**
  * d_find_any_alias() - Find any alias for a given inode.
- * @inode: inode to find an alias for
+ * @inode: The inode to find an alias for.
  *
  * If any aliases exist for the given inode, take and return a
  * reference for one of them.
@@ -949,7 +949,7 @@ static struct dentry *__d_find_alias(struct inode *inode)
 
 /**
  * d_find_alias() - Grab a hashed alias of inode.
- * @inode: inode in question
+ * @inode: The inode in question.
  *
  * If inode has a hashed alias, or is a directory and has any alias,
  * acquire the reference to alias.  Notice that if inode is a directory
@@ -1156,7 +1156,7 @@ static enum lru_status dentry_lru_isolate(struct list_head *item,
 
 /**
  * prune_dcache_sb() - Shrink the dcache.
- * @sb: superblock
+ * @sb: The superblock to shrink.
  * @sc: shrink control, passed to list_lru_shrink_walk()
  *
  * Attempt to shrink the superblock dcache LRU by @sc->nr_to_scan entries. This
@@ -1372,7 +1372,7 @@ static enum d_walk_ret path_check_mount(void *data, struct dentry *dentry)
 
 /**
  * path_has_submounts() - Check current namespace for mounts over a dentry.
- * @parent: path to check.
+ * @parent: The path to check.
  *
  * Return: True if the parent or its subdirectories contain
  *         a mount point in the current namespace.
@@ -1481,7 +1481,7 @@ out:
 
 /**
  * shrink_dcache_parent() - Prune dcache.
- * @parent: parent of entries to prune
+ * @parent: The parent of entries to prune.
  *
  * Prune the dcache to remove unused children of the parent dentry.
  */
@@ -1576,7 +1576,7 @@ static enum d_walk_ret find_submount(void *_data, struct dentry *dentry)
 
 /**
  * d_invalidate() - Detach submounts, prune dcache, and drop.
- * @dentry: dentry to invalidate (aka detach, prune and drop)
+ * @dentry: The dentry to invalidate (aka detach, prune and drop).
  */
 void d_invalidate(struct dentry *dentry)
 {
@@ -1611,8 +1611,8 @@ EXPORT_SYMBOL(d_invalidate);
 
 /**
  * __d_alloc() - Allocate a dcache entry.
- * @sb: filesystem it will belong to
- * @name: qstr of the name
+ * @sb: The filesystem it will belong to.
+ * @name: The qstr of the name.
  *
  * @name is copied and may be reused after this call.
  *
@@ -1695,8 +1695,8 @@ struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
 
 /**
  * d_alloc() - Allocate a dcache entry.
- * @parent: parent of entry to allocate
- * @name: qstr of the name
+ * @parent: The parent of entry to allocate.
+ * @name: The qstr of the name.
  *
  * Allocates a dentry and adds it to @parent.  See __d_alloc() for full
  * explanation of behaviour.
@@ -1743,8 +1743,8 @@ struct dentry *d_alloc_cursor(struct dentry * parent)
 
 /**
  * d_alloc_pseudo() - Allocate a dentry (for lookup-less filesystems).
- * @sb: the superblock
- * @name: qstr of the name
+ * @sb: The superblock.
+ * @name: The qstr of the name.
  *
  * For a filesystem that just pins its dentries in memory and never
  * performs lookups at all, return an unhashed IS_ROOT dentry.
@@ -1872,8 +1872,8 @@ static void __d_instantiate(struct dentry *dentry, struct inode *inode)
 
 /**
  * d_instantiate() - Fill in inode information for a dentry.
- * @entry: dentry to complete
- * @inode: inode to attach to this dentry
+ * @entry: The dentry to complete.
+ * @inode: The inode to attach to this dentry.
  *
  * This turns negative dentries into productive full members
  * of society.
@@ -2012,7 +2012,7 @@ out_iput:
 
 /**
  * d_obtain_alias() - Find or allocate a DISCONNECTED dentry.
- * @inode: inode to allocate the dentry for
+ * @inode: The inode to allocate the dentry for.
  *
  * Obtain a dentry for an inode resulting from NFS filehandle conversion or
  * similar open by handle operations.  The returned dentry may be anonymous,
@@ -2036,7 +2036,7 @@ EXPORT_SYMBOL(d_obtain_alias);
 
 /**
  * d_obtain_root() - Find or allocate a dentry for a given inode.
- * @inode: inode to allocate the dentry for
+ * @inode: The inode to allocate the dentry for.
  *
  * Obtain an IS_ROOT dentry for the root of a filesystem.
  *
@@ -2057,9 +2057,9 @@ EXPORT_SYMBOL(d_obtain_root);
 
 /**
  * d_add_ci() - Lookup or allocate new dentry with case-exact name.
- * @inode:  the inode case-insensitive lookup has found
- * @dentry: the negative dentry that was passed to the parent's lookup func
- * @name:   the case-exact name to be associated with the returned dentry
+ * @inode: The inode case-insensitive lookup has found.
+ * @dentry: The negative dentry that was passed to the parent's lookup func.
+ * @name: The case-exact name to be associated with the returned dentry.
  *
  * This is to avoid filling the dcache with case-insensitive names to the
  * same inode, only the actual correct case is stored in the dcache for
@@ -2125,9 +2125,9 @@ static inline bool d_same_name(const struct dentry *dentry,
 
 /**
  * __d_lookup_rcu() - Search for a dentry (racy, store-free).
- * @parent: parent dentry
- * @name: qstr of name we wish to find
- * @seqp: returns d_seq value at the point where the dentry was found
+ * @parent: The parent dentry.
+ * @name: The qstr of name we wish to find.
+ * @seqp: Returns d_seq value at the point where the dentry was found.
  *
  * __d_lookup_rcu is the dcache lookup function for rcu-walk name
  * resolution (store-free path walking) design described in
@@ -2241,8 +2241,8 @@ seqretry:
 
 /**
  * d_lookup() - Search for a dentry.
- * @parent: parent dentry
- * @name: qstr of name we wish to find
+ * @parent: The parent dentry.
+ * @name: The qstr of name we wish to find.
  *
  * d_lookup() searches the children of the parent dentry for the name in
  * question. If the dentry is found its reference count is incremented and the
@@ -2268,8 +2268,8 @@ EXPORT_SYMBOL(d_lookup);
 
 /**
  * __d_lookup() - Search for a dentry (racy).
- * @parent: parent dentry
- * @name: qstr of name we wish to find
+ * @parent: The parent dentry.
+ * @name: The qstr of name we wish to find.
  *
  * __d_lookup() is like d_lookup(), however it may (rarely) return a
  * false-negative result due to unrelated rename activity.
@@ -2340,8 +2340,8 @@ next:
 
 /**
  * d_hash_and_lookup() - Hash the qstr then search for a dentry.
- * @dir: Directory to search in
- * @name: qstr of name we wish to find
+ * @dir: Directory to search in.
+ * @name: The qstr of name we wish to find.
  *
  * Return: The dentry if found, %NULL on lookup failure, ERR_PTR(-error)
  *         on bad name.
@@ -2378,7 +2378,7 @@ EXPORT_SYMBOL(d_hash_and_lookup);
 
 /**
  * d_delete() - Delete a dentry.
- * @dentry: The dentry to delete
+ * @dentry: The dentry to delete.
  *
  * Turn the dentry into a negative dentry if possible, otherwise
  * remove it from the hash queues so it can be deleted later.
@@ -2416,7 +2416,7 @@ static void __d_rehash(struct dentry *entry)
 
 /**
  * d_rehash() - Add an entry back to the hash.
- * @entry: dentry to add to the hash
+ * @entry: The dentry to add to the hash.
  *
  * Adds a dentry to the hash according to its name.
  */
@@ -2613,8 +2613,8 @@ static inline void __d_add(struct dentry *dentry, struct inode *inode)
 
 /**
  * d_add() - Add dentry to hash queues.
- * @entry: dentry to add
- * @inode: The inode to attach to this dentry
+ * @entry: The dentry to add.
+ * @inode: The inode to attach to this dentry.
  *
  * This adds the entry to the hash queues and initializes @inode.
  * The entry was actually filled in earlier during d_alloc().
@@ -2632,8 +2632,8 @@ EXPORT_SYMBOL(d_add);
 
 /**
  * d_exact_alias() - Find and hash an exact unhashed alias.
- * @entry: dentry to add
- * @inode: The inode to go with this dentry
+ * @entry: The dentry to add.
+ * @inode: The inode to go with this dentry.
  *
  * Context: Parent directory should be locked.
  * Return: If an unhashed dentry with the same name/parent and desired
@@ -2831,8 +2831,8 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 
 /**
  * d_move() - Move a dentry.
- * @dentry: entry to move
- * @target: new dentry
+ * @dentry: The dentry to move.
+ * @target: The new dentry.
  *
  * Update the dcache to reflect the move of a file name. Negative
  * dcache entries should not be moved in this way.
@@ -2851,8 +2851,8 @@ EXPORT_SYMBOL(d_move);
 
 /**
  * d_exchange() - Exchange two dentries.
- * @dentry1: first dentry
- * @dentry2: second dentry
+ * @dentry1: The first dentry.
+ * @dentry2: The second dentry.
  */
 void d_exchange(struct dentry *dentry1, struct dentry *dentry2)
 {
@@ -2870,8 +2870,8 @@ void d_exchange(struct dentry *dentry1, struct dentry *dentry2)
 
 /**
  * d_ancestor() - Search for an ancestor.
- * @p1: ancestor dentry
- * @p2: child dentry
+ * @p1: The ancestor dentry.
+ * @p2: The child dentry.
  *
  * Return: The ancestor dentry of p2 which is a child of p1, if p1 is
  *         an ancestor of p2, else %NULL.
@@ -2927,8 +2927,8 @@ out_err:
 
 /**
  * d_splice_alias() - Splice a disconnected dentry into the tree if one exists.
- * @inode:  the inode which may have a disconnected dentry
- * @dentry: a negative dentry which we want to point to the inode.
+ * @inode: The inode which may have a disconnected dentry.
+ * @dentry: A negative dentry which we want to point to the inode.
  *
  * If inode is a directory and has an IS_ROOT alias, then d_move() that in
  * place of the given dentry and return it, else simply d_add() the inode
@@ -3007,8 +3007,8 @@ EXPORT_SYMBOL(d_splice_alias);
 
 /**
  * is_subdir - is new dentry a subdirectory of old_dentry
- * @new_dentry: new dentry
- * @old_dentry: old dentry
+ * @new_dentry: The new dentry.
+ * @old_dentry: The old dentry.
  *
  * Return: True if new_dentry is a subdirectory of the parent (at any
  *         depth).  False otherwise.
